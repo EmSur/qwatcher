@@ -15,17 +15,20 @@ from sys import exit, exc_info
 class ServiceCloud():
      
     
-    def __init__(self, scurl = 'https://login.salesforce.com', update_freq = 20):
+    def __init__(self, update_freq = 3):
         '''prepares the actual landing/logon page for SC'''
         self.isSConline = False # flag - is the user logged into SC?
         self.browser = None # the actual browser window in which the app is being render
-        self.update_freq = 20  # how often the update loop is being run     
+        self.update_freq = 20  # how often the update loop is being run 
+        
+        self.loginurl  = 'https://login.salesforce.com'
+        self.logouturl = 'https://na2.salesforce.com/secur/logout.jsp'
+        self.myqueueurl = "https://na2.salesforce.com/apex/MyQueueCases"
         
         print('Launching browser...')
         self.browser = webdriver.Chrome(service_args=["--verbose", "--log-path=qc1.log"])
-        self.browser.get('https://login.salesforce.com')
-
-        
+        self.browser.get(self.loginurl)
+   
         
     def login(self, creds):
         print('Logging into SC...')
@@ -38,16 +41,16 @@ class ServiceCloud():
         sleep(15)
         try:
             print('Displaying HD Queue only...\n')
-            self.browser.get("https://na2.salesforce.com/apex/MyQueueCases")
+            self.browser.get(self.myqueueurl)
         except WebDriverException:
             pass
         self.isSConline = True
         
         
     def logoff(self):
-        # TODO to be implemented
-        pass
-    
+        print('Logging off of SC...')
+        self.browser.get(self.logouturl)
+        
     
     def main_loop(self):
         while True:
@@ -55,7 +58,8 @@ class ServiceCloud():
             
             # entering the main loop first thing to check is whether it is workinghours
             # if we have working hours we go on with our job:
-            if self._isWorkhours(datetime.now()):    
+            print self.isWorkhours(datetime.now())
+            if self.isWorkhours(datetime.now()):    
                 # checking if we are still online
                 if self.isSConline == False:
                     self.login(creds)
@@ -63,8 +67,12 @@ class ServiceCloud():
             # if we are outside of working hours we calculate how long we hall put the algorithm to sleep
             # until the next loop is started
             else:
-                # TODO implement calculating algorithm 
+                # but first we need to logoff from SC  
+                if self.isSConline == True:
+                    self.logoff()
+                # wait till next standard heartbeat
                 sleep(self.update_freq)
+                # TODO implement calculating algorithm
                 
             
     
@@ -85,19 +93,29 @@ class ServiceCloud():
     #     return freq
     
     
-    def _isWorkhours(self, dt):
+    def isWorkhours(self, dt):
         ''' checks if the loop should proceed with checking whether status of the q
         if the datetime is in the range of the working weekdays and woeking hours of
         the q than the fynction returns 'True'
         '''
+        print dt
         if dt.isoweekday() == 6 or dt.isoweekday() == 7:
             return False
-        if dt.hour > 18 and dt.hour < 8:
+        print dt.hour
+        if dt.hour > 18 or dt.hour < 8:
             return False
         else:
             return True
-
-
+        
+    def _next_heartbeat(self):
+        ''' clacultes how much time in seconds will need to pass between now and the 
+        neraest opening of the queue (nearest working hour starting time)
+        
+        returns sleep_for - (int) seconds to nearest opening of the queue
+        '''
+        # TODO _next_heartbeat to be implemented
+        now = datetime.now()
+        
 def get_login():
     login = raw_input('Please type in your username [name.lastname] : ')
     if login == '':
@@ -111,6 +129,9 @@ if __name__ == "__main__":
     try:
         creds = get_login()
         sc = ServiceCloud()
+        if sc.isWorkhours(datetime.now()) == False:
+            print ("its {0} - no working hours - exiting now".format(datetime.now()))
+            exit(1)
         sc.login(creds)
         sc.main_loop() #starting to iterate over the main loop
         
