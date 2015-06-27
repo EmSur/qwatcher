@@ -6,13 +6,15 @@ Created on 6 Apr 2015
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import WebDriverException, NoSuchWindowException
-from datetime import datetime, date
-from time import sleep
+from datetime import *
 from getpass import getpass
-from sys import exit, exc_info
+import requests
+from bs4 import BeautifulSoup as bs
+import time
 
-import Case
+
 
 class ServiceCloud():
      
@@ -38,12 +40,14 @@ class ServiceCloud():
         print('Logging into SC...')
         self.browser.get(self.loginurl)
         login = self.browser.find_element(By.XPATH, "//input[@type='email']")
+        login.send_keys(Keys.F11)
+        print "done"
         login.send_keys(self.creds[0])
         passw = self.browser.find_element(By.XPATH, "//input[@type='password']")
         passw.send_keys(self.creds[1])
         login_butt = self.browser.find_element(By.XPATH, "//button[@id='Login']")
         login_butt.click()
-        sleep(15)
+        time.sleep(15)
         try:
             print('Displaying HD Queue only...\n')
             self.browser.get(self.myqueueurl)
@@ -59,11 +63,11 @@ class ServiceCloud():
     
     def main_loop(self):
         while True:
-            sleep(self.update_freq)
+            time.sleep(self.update_freq)
             
             # entering the main loop first thing to check is whether it is workinghours
             # if we have working hours we go on with our job:
-            print self.isWorkhours(datetime.now())
+            print (self.isWorkhours(datetime.now()))
             if self.isWorkhours(datetime.now()):    
                 # checking if we are still online
                 if self.isSConline == False:
@@ -80,7 +84,7 @@ class ServiceCloud():
                     self.logoff()
                     self.isSConline = False # because we haved logged of we need to change the flag
                 # wait till next standard heartbeat
-                sleep(self.update_freq)
+                time.sleep(self.update_freq)
                 # TODO implement calculating algorithm
                     
     
@@ -105,15 +109,15 @@ class ServiceCloud():
         if the datetime is in the range of the working weekdays and woeking hours of
         the q than the fynction returns 'True'
         '''
-        print dt
-        if dt.isoweekday() == 6 or dt.isoweekday() == 7:
-            return False
-        print dt.hour
-        if dt.hour > 18 or dt.hour < 8:
-            return False
-        else:
-            return True
-        
+#         print (dt)
+#         if dt.isoweekday() == 6 or dt.isoweekday() == 7:
+#             return False
+#         print (dt.hour)
+#         if dt.hour > 18 or dt.hour < 8:
+#             return False
+#         else:
+#             return True
+        return True
         
     def _next_heartbeat(self):
         ''' calculates how much time in seconds will need to pass between now and the 
@@ -130,23 +134,23 @@ class ServiceCloud():
         returns - dictionary of all cases after the last update of the SC webpage
         '''
         fresh_case_queue = {}
-        case_list = self.browser.find_elements(By.XPATH, '//td//tr/td[2]')      # pulls the column with the case numbers
-        opened = self.browser.find_elements(By.XPATH, '//td//tr/td[4]')         # r[1] column with the opened date
-        responset_list = self.browser.find_elements(By.XPATH, '//td//tr/td[6]') # r[2] column with the response time
-        status_list = self.driver.find_elements(By.XPATH, '//td//tr/td[10]')    # r[3] column with the current working status
-        severity_list= self.driver.find_elements(By.XPATH, '//td//tr/td[11]')   # r[4] column with severity
-        # all above columns will be transposed and put into a dictionary of cases
-        # first w zip the columns into tuples - each tuple representing one row/case of the list)
-        allcolumns = zip(case_list, opened, responset_list, status_list, severity_list )
-        for row in allcolumns:
-            nextCase = Case(row[0]) # instantiating a case object with its case number
-            # filling out the neccessary fields       
-            nextCase.details['Date/Time Opened'] = row[1]
-            nextCase.details['Response Time'] = row[2]
-            nextCase.details['Severity'] = row[3]
-            nextCase.details['Impact'] = row[4]
-            # adding the case to the case dictionary with the case number as key
-            fresh_case_queue[row[0]] = nextCase
+#         case_list = self.browser.find_elements(By.XPATH, '//td//tr/td[2]')      # pulls the column with the case numbers
+#         opened = self.browser.find_elements(By.XPATH, '//td//tr/td[4]')         # r[1] column with the opened date
+#         responset_list = self.browser.find_elements(By.XPATH, '//td//tr/td[6]') # r[2] column with the response time
+#         status_list = self.driver.find_elements(By.XPATH, '//td//tr/td[10]')    # r[3] column with the current working status
+#         severity_list= self.driver.find_elements(By.XPATH, '//td//tr/td[11]')   # r[4] column with severity
+#         # all above columns will be transposed and put into a dictionary of cases
+#         # first w zip the columns into tuples - each tuple representing one row/case of the list)
+#         allcolumns = zip(case_list, opened, responset_list, status_list, severity_list )
+#         for row in allcolumns:
+#             nextCase = Case(row[0]) # instantiating a case object with its case number
+#             # filling out the neccessary fields       
+#             nextCase.details['Date/Time Opened'] = row[1]
+#             nextCase.details['Response Time'] = row[2]
+#             nextCase.details['Severity'] = row[3]
+#             nextCase.details['Impact'] = row[4]
+#             # adding the case to the case dictionary with the case number as key
+#             fresh_case_queue[row[0]] = nextCase
         return fresh_case_queue
         
 #         for row in allcolumns:
@@ -160,17 +164,14 @@ class ServiceCloud():
 #                 ### BEEEEP
 #                 # and now add the case to the case 
 #                 self.case_queue[case_number] = [row[1], row[2], row[3], row[3], row[4]]
-    def _raise_alerts(fresh_cases):
+    def _raise_alerts(self, fresh_cases):
         ''' takes action by raising alerts or sending e-mails to relevant people if cases hit the queue or 
         get breached. 
         '''
-        ## TOD - finish alerts
-        for case_number in fresh_cases:
-            if case_number in self.case_queue:
-                pass
-            
-            
-                    
+#         ## TODO - finish alerts
+#         for case_number in fresh_cases:
+#             if case_number in self.case_queue:
+#                 pass           
         pass
     
     
@@ -209,7 +210,7 @@ if __name__ == "__main__":
     #     print exc_info()[0]
         
     finally:
-        sleep(5)
+        time.sleep(5)
         exit(1)
 
     
